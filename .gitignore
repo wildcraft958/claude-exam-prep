@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.DS_Store
+.idea/
+.vscode/
+
+# per-exam raw source material is often large or copyrighted; do not track
+exams/*/raw/
+
+# generated outputs inside per-exam dirs are re-buildable; uncomment to exclude
+# exams/*/_prep_notes/pdf/
+# exams/*/_prep_notes/images/
+# exams/*/pdf/

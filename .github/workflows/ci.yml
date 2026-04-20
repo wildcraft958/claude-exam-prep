@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz libpango-1.0-0 libpangoft2-1.0-0
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Byte-compile every Python script
+        run: |
+          python -m py_compile scripts/*.py
+          python -m py_compile templates/*.py
+
+      - name: Scaffold a smoke-test exam
+        run: |
+          python3 scripts/setup_exam.py --name "CI_Smoke_Test"
+          test -f exams/CI_Smoke_Test/CLAUDE.md
+          test -f exams/CI_Smoke_Test/_prep_notes/code/md_to_pdf.py
+          test -f exams/CI_Smoke_Test/_prep_notes/code/figure_helpers.py
+
+      - name: Build the scaffolded CLAUDE.md to PDF
+        run: |
+          python3 scripts/md_to_pdf.py exams/CI_Smoke_Test/CLAUDE.md
+          test -f exams/CI_Smoke_Test/pdf/CLAUDE.pdf
+
+      - name: Run audit (expected to flag the placeholder submodules; non-fatal)
+        run: |
+          python3 scripts/audit.py exams/CI_Smoke_Test/ || echo "audit surfaced expected placeholder warnings"
+
+      - name: Clean up smoke-test exam
+        run: rm -rf exams/CI_Smoke_Test/
+
+      - name: Check for em or en dashes in docs and templates
+        run: |
+          set -e
+          if grep -r --include='*.md' --include='*.py' -nP '[\x{2013}\x{2014}]' CLAUDE.md README.md docs/ templates/ scripts/; then
+            echo "::error::Em or en dash found. Replace with commas, colons, semicolons, periods, parentheses, or plain hyphens."
+            exit 1
+          else
+            echo "No em or en dashes found."
+          fi
